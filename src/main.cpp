@@ -7,21 +7,6 @@
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 
-/* ---- START VEXCODE CONFIGURED DEVICES ----
-Robot Configuration:
-[Name]               [Type]        [Port(s)]
-right_drive_motor     motor           10
-left_drive_motor      motor            1
-cam_motor             motor            7
-arm_motor             motor            8
-claw_motor            motor            3
-con1                controller        N/A
-VisionSensor         sensor            2
-DistanceSensor       sensor            5
-gps                   gps              4
-InertialSensor       sensor            9      
- ---- END VEXCODE CONFIGURED DEVICES ---- */
-
 /*
 up arrow - move cam up
 left arrow - move cam down
@@ -38,6 +23,10 @@ a - close claw for .5 sec (press again resets to fully open)
 right arrow - close claw
 */
 
+/*
+if lightsensor detect object in claw then close claw, light up green led, or vibrate controller
+
+*/
 
 /*
 set motor pos 3 to 0 (fully open)
@@ -45,6 +34,29 @@ a - close claw for .5 sec (press again resets to pos 0)
 */
 
 #include "vex.h"
+
+// ---- START VEXCODE CONFIGURED DEVICES ----
+// Robot Configuration:
+// [Name]               [Type]        [Port(s)]
+// Drivetrain           drivetrain    1, 10           
+// cam_motor            motor         7               
+// arm_motor            motor         8               
+// claw_motor           motor         3               
+// Controller1          controller                    
+// DistanceSensor       distance      5               
+// InertialSensor       inertial      9               
+// GPS                  gps           4               
+// RotationSensor       rotation      11              
+// LimitSwitch          limit         A               
+// left_bumper          bumper        E               
+// right_bumper         bumper        F               
+// LightSensor          light         G               
+// green                led           H               
+// yellow               led           B               
+// potentiometer        pot           D               
+// red                  led           C               
+// ---- END VEXCODE CONFIGURED DEVICES ----
+
 #include <algorithm>
 #include <cmath>
 
@@ -58,10 +70,18 @@ vex::motor      claw_motor(vex::PORT3, vex::gearSetting::ratio18_1, false);
 vex::controller con1(vex::controllerType::primary);
 vex::vision     VisionSensor(vex::PORT2);
 vex::competition Competition;
-vex::distance DistanceSensor(vex::PORT5);
-vex::gps        gps(vex::PORT4, 0, turnType::right);
+vex::distance   DistanceSensor(vex::PORT5);
+vex::gps        gps(vex::PORT5, 0, turnType::right);
 vex::inertial   InertialSensor(vex::PORT9);
-//vex::rotation   RotationSensor(vex::PORT4);
+vex::rotation   RotationSensor(vex::PORT11);
+vex::limit      LimitSwitch(Brain.ThreeWirePort.A);
+vex::bumper     left_bumper(Brain.ThreeWirePort.E);
+vex::bumper     right_bumper(Brain.ThreeWirePort.F);
+vex::light      LightSensor(Brain.ThreeWirePort.G);
+vex::led        green(Brain.ThreeWirePort.H);
+vex::led        yellow(Brain.ThreeWirePort.B);
+vex::led        red(Brain.ThreeWirePort.C);
+vex::pot        potentiometer(Brain.ThreeWirePort.D);
 
 
 void driving(void) {
@@ -82,8 +102,6 @@ void driving(void) {
   double rightDriveSpeed = 0;
 
   while(true) {
-
-    con1.Screen.print(claw_motor.position(rotationUnits::deg));
 
     // camera
     if (con1.ButtonUp.pressing()) {
@@ -171,7 +189,9 @@ void driving(void) {
     if (con1.ButtonL2.pressing()) {
       arm_motor.spin(directionType::fwd, armPctSpeed, velocityUnits::pct);
     } else if (con1.ButtonDown.pressing()) {
-      arm_motor.spin(directionType::rev, armPctSpeed, velocityUnits::pct);
+      if(!LimitSwitch.pressing()) {
+        arm_motor.spin(directionType::rev, armPctSpeed, velocityUnits::pct);
+      }
     } else {
       arm_motor.stop();
     }
