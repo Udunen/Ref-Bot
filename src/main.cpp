@@ -44,6 +44,10 @@ a - close claw for .5 sec (press again resets to pos 0)
 // Controller1          controller                    
 // DistanceSensor       distance      5               
 // InertialSensor       inertial      9               
+// left_drive_motor     motor         1               
+// right_drive_motor    motor         10              
+// RotationSensor       rotation      11              
+// GPS                  gps           4               
 // LimitSwitch          limit         A               
 // left_bumper          bumper        E               
 // right_bumper         bumper        F               
@@ -52,10 +56,6 @@ a - close claw for .5 sec (press again resets to pos 0)
 // yellow               led           B               
 // potentiometer        pot           D               
 // red                  led           C               
-// GPS                  gps           4               
-// RotationSensor       rotation      11              
-// left_drive_motor     motor         1               
-// right_drive_motor    motor         10              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include <algorithm>
@@ -199,6 +199,8 @@ void driving(void) {
         } else {
           arm_motor.stop();
         }
+      } else {
+        arm_motor.stop();
       }
     } else if (Controller1.ButtonDown.pressing()) {
       if(!LimitSwitch.pressing()) {
