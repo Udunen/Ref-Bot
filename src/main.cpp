@@ -23,15 +23,6 @@ a - close claw for .5 sec (press again resets to fully open)
 right arrow - close claw
 */
 
-/*
-if lightsensor detect object in claw then close claw, light up green led, or vibrate controller
-
-*/
-
-/*
-set motor pos 3 to 0 (fully open)
-a - close claw for .5 sec (press again resets to pos 0)
-*/
 
 #include "vex.h"
 
@@ -44,18 +35,19 @@ a - close claw for .5 sec (press again resets to pos 0)
 // Controller1          controller                    
 // DistanceSensor       distance      5               
 // InertialSensor       inertial      9               
-// left_drive_motor     motor         1               
-// right_drive_motor    motor         10              
-// RotationSensor       rotation      11              
-// GPS                  gps           4               
 // LimitSwitch          limit         A               
 // left_bumper          bumper        E               
 // right_bumper         bumper        F               
 // LightSensor          light         G               
-// green                led           H               
-// yellow               led           B               
+// greenLED             led           H               
+// yellowLED            led           B               
 // potentiometer        pot           D               
-// red                  led           C               
+// redLED               led           C               
+// GPS                  gps           4               
+// RotationSensor       rotation      11              
+// left_drive_motor     motor         1               
+// right_drive_motor    motor         10              
+// VisionSensor         vision        2               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include <algorithm>
@@ -91,9 +83,15 @@ void driving(void) {
   arm_motor.setBrake(hold);
   claw_motor.setBrake(hold);
 
+  greenLED.off();
+  yellowLED.off();
+  redLED.off();
+
   claw_motor.spinFor(directionType::rev, 0.5, sec);
   task::sleep(500);
   double clawOpen = claw_motor.position(rotationUnits::deg);
+  double setLight = LightSensor.brightness();
+  double setPot = 215.0;
 
   double drivePctSpeed = 50;
   double drivePctTemp = 50;
@@ -103,6 +101,13 @@ void driving(void) {
   double rightDriveSpeed = 0;
 
   while(true) {
+    double lightTune = (setPot - potentiometer.angle(rotationUnits::deg))/9;
+
+    Controller1.Screen.print(LightSensor.brightness());
+    Controller1.Screen.print("---");
+    Controller1.Screen.print(setLight - 5 - lightTune);
+    Controller1.Screen.clearLine();
+    Controller1.Screen.setCursor(1,1);
 
     // camera
     if (Controller1.ButtonUp.pressing()) {
@@ -123,8 +128,23 @@ void driving(void) {
       }
     } else if (Controller1.ButtonRight.pressing()) {
       claw_motor.spin(fwd);
-    } else {
+    } else if (LightSensor.brightness() > setLight - 5){
       claw_motor.stop();
+    }
+
+    if (LightSensor.brightness() <= setLight - 5 - lightTune && claw_motor.position(rotationUnits::deg) < 230) {
+      // claw_motor.spin(directionType::fwd);
+      greenLED.on();
+      // Controller1.rumble(rumbleShort);
+    } else if (!Controller1.ButtonA.pressing() && !Controller1.ButtonRight.pressing()) {
+      greenLED.off();
+      claw_motor.stop();
+    }
+
+    if(LimitSwitch.pressing()) {
+      redLED.on();
+    } else {
+      redLED.off();
     }
 
     if(Controller1.ButtonX.pressing() && drivePctTemp < 100) {
@@ -228,5 +248,4 @@ int main() {
 
   //Competition.autonomous();
   Competition.drivercontrol(driving);
-  
 }
