@@ -100,14 +100,18 @@ void driving(void) {
   double leftDriveSpeed = 0;
   double rightDriveSpeed = 0;
 
+  int turnAngle = 0;
+  int currentAngle;
+
   while(true) {
+    currentAngle = (int) InertialSensor.heading(rotationUnits::deg);
     double lightTune = (setPot - potentiometer.angle(rotationUnits::deg))/9;
 
-    Controller1.Screen.print(LightSensor.brightness());
-    Controller1.Screen.print("---");
-    Controller1.Screen.print(setLight - 5 - lightTune);
-    Controller1.Screen.clearLine();
-    Controller1.Screen.setCursor(1,1);
+    // Controller1.Screen.print(LightSensor.brightness());
+    // Controller1.Screen.print("---");
+    // Controller1.Screen.print(setLight - 5 - lightTune);
+    // Controller1.Screen.clearLine();
+    // Controller1.Screen.setCursor(1,1);
 
     // camera
     if (Controller1.ButtonUp.pressing()) {
@@ -204,8 +208,67 @@ void driving(void) {
       left_drive_motor.spin(directionType::rev, leftDriveSpeed, velocityUnits::pct);
       right_drive_motor.spin(directionType::fwd, rightDriveSpeed, velocityUnits::pct);
     } else {
-      left_drive_motor.spin(directionType::fwd, leftX, velocityUnits::pct);
-      right_drive_motor.spin(directionType::fwd, leftX, velocityUnits::pct);
+      if (leftX != 0) {
+        if(leftX > 0){
+          leftDriveSpeed = drivePctSpeed + leftX;
+          rightDriveSpeed = drivePctSpeed - leftX*M_PI_2;
+        } else if (leftX < 0) {
+          leftDriveSpeed = drivePctSpeed + leftX*M_PI_2;
+          rightDriveSpeed = drivePctSpeed - leftX;
+        } else {
+          leftDriveSpeed = drivePctSpeed;
+          rightDriveSpeed = drivePctSpeed;
+        }
+        left_drive_motor.spin(directionType::fwd, leftDriveSpeed, velocityUnits::pct);
+        right_drive_motor.spin(directionType::rev, rightDriveSpeed, velocityUnits::pct);
+        turnAngle = currentAngle;
+      } else {
+        int endAngle = turnAngle % 360;
+        int amountToTurn;
+        if ((endAngle - currentAngle) > 180) {
+          amountToTurn = (endAngle - currentAngle) - 360;
+        } else if (currentAngle - endAngle > 180){
+          amountToTurn = 360 - (currentAngle - endAngle);
+        } else {
+          amountToTurn = endAngle - currentAngle;
+        }
+        int prevError = amountToTurn;
+
+        double initialSpeed = 60;
+        
+        double amountToTurnIntegral = 0;
+        double aTTp = 0.006;
+        double aTTd = 0.0005;
+        double aTTi = 0.015;
+
+        if (std::abs(amountToTurn) > 2) {
+          if ((endAngle - currentAngle) > 180) {
+            amountToTurn = (endAngle - currentAngle) - 360;
+          } else if (currentAngle - endAngle > 180){
+            amountToTurn = 360 - (currentAngle - endAngle);
+          } else {
+            amountToTurn = endAngle - currentAngle;
+          }
+          if(std::abs(amountToTurn) < 5 && amountToTurn != 0){
+            amountToTurnIntegral += amountToTurn;
+          } else {
+            amountToTurnIntegral = 0;
+          }
+          double derivative = amountToTurn - prevError;
+          prevError = amountToTurn;
+
+          double speed = (amountToTurn*aTTp + derivative * aTTd + amountToTurnIntegral*aTTi) * initialSpeed;
+
+          left_drive_motor.spin(directionType::fwd, speed, velocityUnits::pct);
+          right_drive_motor.spin(directionType::fwd, speed, velocityUnits::pct);
+        } else {
+          left_drive_motor.stop();
+          right_drive_motor.stop();
+        }
+        Controller1.Screen.print(amountToTurn);
+        Controller1.Screen.clearLine();
+        Controller1.Screen.setCursor(1,1);
+      }
     }
     
     if (Controller1.ButtonL2.pressing() && !Controller1.ButtonL1.pressing()) {
