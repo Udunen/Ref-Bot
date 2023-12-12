@@ -76,6 +76,61 @@ vex::competition Competition;
 // vex::led        red(Brain.ThreeWirePort.C);
 // vex::pot        potentiometer(Brain.ThreeWirePort.D);
 
+bool pressBKekW = false;
+
+void toggleBalance() {
+  if (pressBKekW) {
+    pressBKekW = false;
+  } else {
+    pressBKekW = true;
+  }
+}
+
+void autoBalance() {
+  int currentPitch = InertialSensor.roll(rotationUnits::deg);
+  int amountToPitch;
+  amountToPitch = -currentPitch;
+  int prevError = amountToPitch;
+
+  double initialSpeed = 100;
+  
+  double amountToPitchIntegral = 0;
+  double aTTp = 0.001;
+  double aTTd = 0;
+  double aTTi = 0;
+
+  if (std::abs(amountToPitch) > 1) {
+    amountToPitch = -currentPitch;
+    if(std::abs(amountToPitch) < 5 && amountToPitch != 0){
+      amountToPitchIntegral += amountToPitch;
+    } else {
+      amountToPitchIntegral = 0;
+    }
+    double derivative = amountToPitch - prevError;
+    prevError = amountToPitch;
+
+    double speed = (amountToPitch*aTTp + derivative * aTTd + amountToPitchIntegral*aTTi) * initialSpeed;
+
+    left_drive_motor.spin(directionType::fwd, speed, velocityUnits::pct);
+    right_drive_motor.spin(directionType::rev, speed, velocityUnits::pct);
+
+    Controller1.Screen.print("Balancing...");
+    Controller1.Screen.clearLine();
+    Controller1.Screen.setCursor(1,1);
+
+    Controller1.ButtonB.pressed(toggleBalance);
+  } else {
+    left_drive_motor.stop();
+    right_drive_motor.stop();
+    pressBKekW = false;
+  }
+  // Controller1.Screen.print(amountToPitch);
+  // Controller1.Screen.clearLine();
+  // Controller1.Screen.setCursor(1,1);
+}
+
+
+
 
 void driving(void) {
   cam_motor.setVelocity(50, velocityUnits::pct);
@@ -155,6 +210,7 @@ void driving(void) {
       drivePctTemp += 25;
       task::sleep(300);     
     }
+
     if(Controller1.ButtonY.pressing() && drivePctTemp > 25) {
       drivePctTemp -= 25;
       task::sleep(300);
@@ -182,11 +238,11 @@ void driving(void) {
 
 
     if(Controller1.ButtonR2.pressing() ^ Controller1.ButtonR1.pressing()) {
-      if(leftX > 0){
+      if(leftX > 1){
         leftDriveSpeed = drivePctSpeed + leftX;
-        rightDriveSpeed = drivePctSpeed - leftX*M_PI_2;
-      } else if (leftX < 0) {
-        leftDriveSpeed = drivePctSpeed + leftX*M_PI_2;
+        rightDriveSpeed = drivePctSpeed - leftX-100;
+      } else if (leftX < -1) {
+        leftDriveSpeed = drivePctSpeed + leftX-100;
         rightDriveSpeed = drivePctSpeed - leftX;
       } else {
         leftDriveSpeed = drivePctSpeed;
@@ -194,26 +250,14 @@ void driving(void) {
       }
       left_drive_motor.spin(directionType::fwd, leftDriveSpeed, velocityUnits::pct);
       right_drive_motor.spin(directionType::rev, rightDriveSpeed, velocityUnits::pct);
-    } else if (Controller1.ButtonB.pressing()) {
-      if(leftX > 0){
-        leftDriveSpeed = drivePctSpeed - leftX;
-        rightDriveSpeed = drivePctSpeed + leftX*M_PI_2;
-      } else if (leftX < 0) {
-        leftDriveSpeed = drivePctSpeed - leftX*M_PI_2;
-        rightDriveSpeed = drivePctSpeed + leftX;
-      } else {
-        leftDriveSpeed = drivePctSpeed;
-        rightDriveSpeed = drivePctSpeed;
-      }
-      left_drive_motor.spin(directionType::rev, leftDriveSpeed, velocityUnits::pct);
-      right_drive_motor.spin(directionType::fwd, rightDriveSpeed, velocityUnits::pct);
+      turnAngle = currentAngle;
     } else {
-      if (leftX != 0) {
-        if(leftX > 0){
+      if (std::abs(leftX) > 1) {
+        if(leftX > 1){
           leftDriveSpeed = drivePctSpeed + leftX;
-          rightDriveSpeed = drivePctSpeed - leftX*M_PI_2;
-        } else if (leftX < 0) {
-          leftDriveSpeed = drivePctSpeed + leftX*M_PI_2;
+          rightDriveSpeed = drivePctSpeed - leftX-100;
+        } else if (leftX < -1) {
+          leftDriveSpeed = drivePctSpeed + leftX-100;
           rightDriveSpeed = drivePctSpeed - leftX;
         } else {
           leftDriveSpeed = drivePctSpeed;
@@ -221,7 +265,12 @@ void driving(void) {
         }
         left_drive_motor.spin(directionType::fwd, leftDriveSpeed, velocityUnits::pct);
         right_drive_motor.spin(directionType::rev, rightDriveSpeed, velocityUnits::pct);
-        turnAngle = currentAngle;
+        turnAngle = currentAngle;      
+        // Controller1.Screen.print(leftDriveSpeed);
+        // Controller1.Screen.print("---");
+        // Controller1.Screen.print(rightDriveSpeed);
+        // Controller1.Screen.clearLine();
+        // Controller1.Screen.setCursor(1,1);
       } else {
         int endAngle = turnAngle % 360;
         int amountToTurn;
@@ -234,12 +283,12 @@ void driving(void) {
         }
         int prevError = amountToTurn;
 
-        double initialSpeed = 60;
+        double initialSpeed = 100;
         
         double amountToTurnIntegral = 0;
-        double aTTp = 0.006;
-        double aTTd = 0.0005;
-        double aTTi = 0.015;
+        double aTTp = 0.0071;
+        double aTTd = 0.001;
+        double aTTi = 0.001;
 
         if (std::abs(amountToTurn) > 2) {
           if ((endAngle - currentAngle) > 180) {
@@ -265,10 +314,16 @@ void driving(void) {
           left_drive_motor.stop();
           right_drive_motor.stop();
         }
-        Controller1.Screen.print(amountToTurn);
-        Controller1.Screen.clearLine();
-        Controller1.Screen.setCursor(1,1);
+        // Controller1.Screen.print(amountToTurn);
+        // Controller1.Screen.clearLine();
+        // Controller1.Screen.setCursor(1,1);
       }
+    }
+    
+    
+    Controller1.ButtonB.pressed(toggleBalance);
+    while(pressBKekW) {
+      autoBalance();
     }
     
     if (Controller1.ButtonL2.pressing() && !Controller1.ButtonL1.pressing()) {
@@ -298,14 +353,16 @@ void driving(void) {
 
 int main() {
 
-  // InertialSensor.setHeading(0.0, rotationUnits::deg);
-  // InertialSensor.setRotation(0.0, rotationUnits::deg);
-  // InertialSensor.startCalibration();
-  // while (InertialSensor.isCalibrating()) {
-  //   task::sleep(10);
-  // }
-  // InertialSensor.setHeading(0.0, rotationUnits::deg);
-  // InertialSensor.setRotation(0.0, rotationUnits::deg);
+  InertialSensor.setHeading(0.0, rotationUnits::deg);
+  InertialSensor.setRotation(0.0, rotationUnits::deg);
+  InertialSensor.startCalibration();
+  while (InertialSensor.isCalibrating()) {
+    task::sleep(10);
+    yellowLED.on();
+  }
+  yellowLED.off();
+  InertialSensor.setHeading(0.0, rotationUnits::deg);
+  InertialSensor.setRotation(0.0, rotationUnits::deg);
   // Initializing Robot Configuration. DO NOT REMOVE!
   vexcodeInit();
 
